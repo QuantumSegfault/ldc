@@ -455,6 +455,7 @@ extern (C++) final class VersionCondition : DVCondition
             case "unittest":
             case "VisionOS":
             case "WASI":
+            case "WASIp2":
             case "WatchOS":
             case "WebAssembly":
             case "Win32":

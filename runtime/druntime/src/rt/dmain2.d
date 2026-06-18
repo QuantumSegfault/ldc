@@ -13,10 +13,14 @@ module rt.dmain2;
 
 import core.atomic;
 import core.internal.parseoptions : rt_parseOption;
+version (WASIp2) {
+import core.stdc.stdlib : alloca, EXIT_FAILURE, EXIT_SUCCESS, free, malloc, realloc;
+} else {
 import core.stdc.errno : errno;
 import core.stdc.stdio : fflush, fprintf, fwrite, stderr, stdout;
 import core.stdc.stdlib : alloca, EXIT_FAILURE, EXIT_SUCCESS, free, malloc, realloc;
 import core.stdc.string : strerror;
+}
 import rt.config : rt_cmdline_enabled, rt_configOption;
 import rt.memory;
 import rt.sections;
@@ -41,6 +45,12 @@ version (Windows)
 }
 else version (Posix)
 {
+    import core.stdc.string : strlen;
+}
+else version (WASIp2)
+{
+    import core.sys.wasip2.wasi.cli.stderr.imports : getStderr;
+    import core.sys.wasip2.common : witList;
     import core.stdc.string : strlen;
 }
 
@@ -322,6 +332,18 @@ extern (C) int _d_run_main(int argc, char** argv, MainFunc mainFunc)
             totalArgsLength += arg.length;
         }
     }
+    else version (WebAssembly)
+    {
+        // Allocate args[] on the stack
+        char[][] args = (cast(char[]*) alloca(argc * (char[]).sizeof))[0 .. argc];
+
+        size_t totalArgsLength = 0;
+        foreach (i, ref arg; args)
+        {
+            arg = argv[i][0 .. strlen(argv[i])];
+            totalArgsLength += arg.length;
+        }
+    }
     else
         static assert(0);
 
@@ -517,13 +539,16 @@ private extern (C) int _d_run_main2(char[][] args, size_t totalArgsLength, MainF
             assert(utResult.passed <= utResult.executed);
             if (utResult.passed == utResult.executed)
             {
-                if (utResult.summarize)
-                {
-                    if (utResult.passed == 0)
-                        .fprintf(.stderr, "No unittests run\n");
-                    else
-                        .fprintf(.stderr, "%d modules passed unittests\n",
-                                 cast(int)utResult.passed);
+                version (WASIp2) {}
+                else {
+                    if (utResult.summarize)
+                    {
+                        if (utResult.passed == 0)
+                            .fprintf(.stderr, "No unittests run\n");
+                        else
+                            .fprintf(.stderr, "%d modules passed unittests\n",
+                                    cast(int)utResult.passed);
+                    }
                 }
                 if (utResult.runMain)
                     tryExec({ result = mainFunc(args); });
@@ -532,10 +557,13 @@ private extern (C) int _d_run_main2(char[][] args, size_t totalArgsLength, MainF
             }
             else
             {
-                if (utResult.summarize)
-                    .fprintf(.stderr, "%d/%d modules FAILED unittests\n",
-                             cast(int)(utResult.executed - utResult.passed),
-                             cast(int)utResult.executed);
+                version (WASIp2) {}
+                else {
+                    if (utResult.summarize)
+                        .fprintf(.stderr, "%d/%d modules FAILED unittests\n",
+                                cast(int)(utResult.executed - utResult.passed),
+                                cast(int)utResult.executed);
+                }
                 result = EXIT_FAILURE;
             }
             version(Shared) version(CRuntime_Microsoft) version (DigitalMars)
@@ -554,12 +582,15 @@ private extern (C) int _d_run_main2(char[][] args, size_t totalArgsLength, MainF
     tryExec(&runAll);
 
     // Issue 10344: flush stdout and return nonzero on failure
-    if (.fflush(.stdout) != 0)
-    {
-        .fprintf(.stderr, "Failed to flush stdout: %s\n", .strerror(.errno));
-        if (result == 0)
+    version (WASIp2) {}
+    else {
+        if (.fflush(.stdout) != 0)
         {
-            result = EXIT_FAILURE;
+            .fprintf(.stderr, "Failed to flush stdout: %s\n", .strerror(.errno));
+            if (result == 0)
+            {
+                result = EXIT_FAILURE;
+            }
         }
     }
 
@@ -687,6 +718,12 @@ extern (C) void _d_print_throwable(Throwable t)
 
     void sink(in char[] buf) scope nothrow
     {
+        version (WASIp2) {
+            auto stderr = getStderr;
+            scope(exit) stderr.drop;
+
+            cast(void)stderr.blockingWriteAndFlush((cast(const ubyte[])buf).witList);
+        } else
         fwrite(buf.ptr, char.sizeof, buf.length, stderr);
     }
     formatThrowable(t, &sink);

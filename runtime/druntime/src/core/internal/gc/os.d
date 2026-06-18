@@ -216,8 +216,10 @@ else static if (is(typeof(malloc))) // else version (GC_Use_Alloc_Malloc)
     //       to PAGESIZE alignment, there will be space for a void* at the end
     //       after PAGESIZE bytes used by the GC.
 
+    version (WASIp2)
+    enum PAGESIZE = 65536;
+    else
     import core.internal.gc.impl.conservative.gc;
-
 
     const size_t PAGE_MASK = PAGESIZE - 1;
 

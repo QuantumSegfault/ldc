@@ -26,6 +26,10 @@ else version (Posix)
     import core.sys.posix.sys.types : pthread_cond_t, pthread_mutex_t;
     import core.sys.posix.time : timespec;
 }
+else version (WASIp2)
+{
+    // Dummy no-op
+}
 else
 {
     static assert(false, "Platform not supported");
@@ -133,6 +137,10 @@ nothrow @nogc:
             m_manualReset = manualReset;
             m_initalized = true;
         }
+        else version (WASIp2)
+        {
+            abort("Error: Cannot initialize Event on WASIp2.");
+        }
     }
 
     // copying not allowed, can produce resource leaks
@@ -166,6 +174,10 @@ nothrow @nogc:
                     abort("Error: pthread_cond_destroy failed.");
                 m_initalized = false;
             }
+        }
+        else version (WASIp2)
+        {
+            abort("Error: Cannot deinitialize Event on WASIp2.");
         }
     }
 
@@ -229,6 +241,11 @@ nothrow @nogc:
         {
             return wait(Duration.max);
         }
+        else version (WASIp2)
+        {
+            abort("Error: Cannot wait for Event on WASIp2.");
+            return false;
+        }
     }
 
     /**
@@ -289,6 +306,11 @@ nothrow @nogc:
             pthread_mutex_unlock(&m_mutex);
 
             return result == 0;
+        }
+        else version (WASIp2)
+        {
+            abort("Error: Cannot wait for Event on WASIp2.");
+            return false;
         }
     }
 

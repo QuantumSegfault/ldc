@@ -15,6 +15,8 @@
 
 module core.stdc.time;
 
+version (WASIp2) {} else:
+
 version (Posix)
     public import core.sys.posix.stdc.time;
 else version (Windows)

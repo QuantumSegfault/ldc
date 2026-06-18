@@ -15,8 +15,10 @@ module rt.profilegc;
 
 private:
 
+version (WASIp2) {} else {
 import core.stdc.errno : errno;
 import core.stdc.stdio : fclose, FILE, fopen, fprintf, snprintf, stderr, stdout;
+}
 import core.stdc.stdlib : free, malloc, qsort, realloc;
 
 import core.exception : onOutOfMemoryError;
@@ -51,6 +53,17 @@ public void accumulate(string file, uint line, string funcname, string type, ulo
         return;
 
     char[3 * line.sizeof + 1] buf = void;
+    version (WASIp2)
+    {
+        size_t buflen = 0;
+        uint scale = 1;
+        while (scale*10 < line) scale *= 10;
+        while (scale > 0) {
+            buf[buflen++] = cast(ubyte)('0'+(line/scale % 10));
+            scale /= 10;
+        }
+    }
+    else
     auto buflen = snprintf(buf.ptr, buf.length, "%u", line);
 
     auto length = type.length + 1 + funcname.length + 1 + file.length + 1 + buflen;
@@ -147,6 +160,8 @@ shared static ~this()
         ++i;
     }
 
+    version (WASIp2) { /* TODO */ }
+    else {
     if (counts.length)
     {
         qsort(counts.ptr, counts.length, Result.sizeof, &Result.qsort_cmp);
@@ -172,5 +187,6 @@ shared static ~this()
                 logfilename.ptr,
                 cast(int) err);
         }
+    }
     }
 }

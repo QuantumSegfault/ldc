@@ -14,6 +14,9 @@
 
 module core.stdc.complex;
 
+version(WASIp2) {}
+else:
+
 extern (C):
 @trusted: // All of these operate on floating point values only.
 nothrow:

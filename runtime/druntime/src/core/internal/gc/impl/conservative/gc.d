@@ -7,6 +7,16 @@
  */
 module core.internal.gc.impl.conservative.gc;
 
+version (WASIp2) {
+
+extern(C) void _d_register_conservative_gc()
+{
+    // no-op
+}
+
+}
+else:
+
 // D Programming Language Garbage Collector implementation
 
 /************** Debugging ***************************/

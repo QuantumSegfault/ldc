@@ -16,8 +16,12 @@ module core.stdc.stdint;
 
 import core.stdc.config;
 import core.stdc.stddef; // for wchar_t
+version (WASIp2) {
+alias wint_t = wchar_t;
+} else {
 import core.stdc.signal; // for sig_atomic_t
 import core.stdc.wchar_; // for wint_t
+}
 
 version (OSX)
     version = Darwin;
@@ -404,6 +408,41 @@ else version (WASI)
     alias intmax_t  = long;      ///
     alias uintmax_t = ulong;     ///
 }
+else version (WASIp2)
+{
+    alias int8_t   = byte;   ///
+    alias int16_t  = short;  ///
+    alias uint8_t  = ubyte;  ///
+    alias uint16_t = ushort; ///
+    alias int32_t  = int;    ///
+    alias uint32_t = uint;   ///
+    alias int64_t  = long;   ///
+    alias uint64_t = ulong;  ///
+
+    alias int_least8_t   = byte;   ///
+    alias uint_least8_t  = ubyte;  ///
+    alias int_least16_t  = short;  ///
+    alias uint_least16_t = ushort; ///
+    alias int_least32_t  = int;    ///
+    alias uint_least32_t = uint;   ///
+    alias int_least64_t  = long;   ///
+    alias uint_least64_t = ulong;  ///
+
+    alias int_fast8_t   = byte;      ///
+    alias uint_fast8_t  = ubyte;     ///
+    alias int_fast16_t  = ptrdiff_t; ///
+    alias uint_fast16_t = size_t;    ///
+    alias int_fast32_t  = ptrdiff_t; ///
+    alias uint_fast32_t = size_t;    ///
+
+    alias int_fast64_t  = long;      ///
+    alias uint_fast64_t = ulong;     ///
+
+    alias intptr_t  = ptrdiff_t; ///
+    alias uintptr_t = size_t;    ///
+    alias intmax_t  = long;      ///
+    alias uintmax_t = ulong;     ///
+}
 else
 {
     static assert(false, "Unsupported architecture.");
@@ -520,10 +559,13 @@ enum ptrdiff_t PTRDIFF_MIN = ptrdiff_t.min;
 ///
 enum ptrdiff_t PTRDIFF_MAX = ptrdiff_t.max;
 
+version (WASIp2) {}
+else {
 ///
 enum sig_atomic_t SIG_ATOMIC_MIN = sig_atomic_t.min;
 ///
 enum sig_atomic_t SIG_ATOMIC_MAX = sig_atomic_t.max;
+}
 
 ///
 enum size_t  SIZE_MAX  = size_t.max;

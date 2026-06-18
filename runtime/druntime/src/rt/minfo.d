@@ -12,7 +12,12 @@
 
 module rt.minfo;
 
+version (WASIp2) {
+import core.sys.wasip2.wasi.cli.stderr.imports : getStderr;
+import core.sys.wasip2.common : witList;
+} else {
 import core.stdc.stdio : fprintf, stderr;
+}
 import core.stdc.stdlib : free, malloc, realloc;
 import core.stdc.string : memcpy, memset;
 import rt.sections;
@@ -183,7 +188,16 @@ struct ModuleGroup
         {
         case "deprecate":
             // Option deprecated in 2.101, remove in 2.111
-            fprintf(stderr, "`--DRT-oncycle=deprecate` is no longer supported, using `abort` instead\n");
+            version (WASIp2)
+            {
+                auto stderr = getStderr;
+                scope(exit) stderr.drop;
+
+                cast(void)stderr.blockingWriteAndFlush((cast(const ubyte[])"`--DRT-oncycle=deprecate` is no longer supported, using `abort` instead\n").witList);
+            }
+            else
+                fprintf(stderr, "`--DRT-oncycle=deprecate` is no longer supported, using `abort` instead\n");
+
             break;
         case "abort":
             onCycle = abort;
@@ -375,7 +389,14 @@ struct ModuleGroup
                                 case print:
                                     // print the message
                                     buildCycleMessage(idx, midx, (string x) {
-                                                      fprintf(stderr, "%.*s", cast(int) x.length, x.ptr);
+                                                        version (WASIp2) {
+                                                            auto stderr = getStderr;
+                                                            scope(exit) stderr.drop;
+
+                                                            cast(void)stderr.blockingWriteAndFlush((cast(const ubyte[])x).witList);
+                                                        } else {
+                                                            fprintf(stderr, "%.*s", cast(int) x.length, x.ptr);
+                                                        }
                                                       });
                                     // continue on as if this is correct.
                                     break;
@@ -519,11 +540,22 @@ struct ModuleGroup
         if (!doSort(MIctor | MIdtor, _ctors) ||
             !doSort(MItlsctor | MItlsdtor, _tlsctors))
         {
-            // print a warning
-            fprintf(stderr, "Deprecation 16211 warning:\n"
-                ~ "A cycle has been detected in your program that was undetected prior to DMD\n"
-                ~ "2.072. This program will continue, but will not operate when using DMD 2.074\n"
-                ~ "to compile. Use runtime option --DRT-oncycle=print to see the cycle details.\n");
+            version (WASIp2) {
+                auto stderr = getStderr;
+                scope(exit) stderr.drop;
+
+                cast(void)stderr.blockingWriteAndFlush((cast(const(ubyte)[])(
+                    "Deprecation 16211 warning:\n"
+                    ~ "A cycle has been detected in your program that was undetected prior to DMD\n"
+                    ~ "2.072. This program will continue, but will not operate when using DMD 2.074\n"
+                    ~ "to compile. Use runtime option --DRT-oncycle=print to see the cycle details.\n"
+                )).witList);
+            } else
+                // print a warning
+                fprintf(stderr, "Deprecation 16211 warning:\n"
+                    ~ "A cycle has been detected in your program that was undetected prior to DMD\n"
+                    ~ "2.072. This program will continue, but will not operate when using DMD 2.074\n"
+                    ~ "to compile. Use runtime option --DRT-oncycle=print to see the cycle details.\n");
 
         }
     }

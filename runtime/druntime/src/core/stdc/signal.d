@@ -14,6 +14,9 @@
 
 module core.stdc.signal;
 
+version(WASIp2) {}
+else:
+
 extern (C):
 nothrow:
 @nogc:

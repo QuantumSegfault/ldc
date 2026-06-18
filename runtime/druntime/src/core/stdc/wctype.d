@@ -14,6 +14,9 @@
 
 module core.stdc.wctype;
 
+version(WASIp2) {}
+else:
+
 import core.stdc.config;
 public  import core.stdc.wchar_; // for wint_t, WEOF
 

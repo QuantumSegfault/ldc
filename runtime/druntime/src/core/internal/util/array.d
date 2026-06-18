@@ -19,8 +19,12 @@ private align(2 * size_t.sizeof) char[256] _store;
 private char[] errorMessage(Args...)(scope const(char*) format,
     const char[] action, Args args) @trusted
 {
+    version (WASIp2) {
+        _store[0..2] = "core.internal.util.array errorMessage."; // TODO: fix me on WASI
+    } else {
     import core.stdc.stdio : snprintf;
     snprintf(&_store[0], _store.sizeof, format, &action[0], args);
+    }
     return _store;
 }
 

@@ -14,6 +14,36 @@
 
 module core.stdc.stdlib;
 
+version (WASIp2) {
+extern(C):
+
+/* Placed outside `nothrow` and `@nogc` in order to not constrain what the callback does.
+ */
+///
+alias _compare_fp_t = int function(const void*, const void*);
+
+nothrow:
+@nogc:
+void*   malloc(size_t size);
+void*   calloc(size_t nmemb, size_t size);
+void*   realloc(void* ptr, size_t size);
+void    free(void* ptr);
+
+void    qsort(void* base, size_t nmemb, size_t size, _compare_fp_t compar);
+
+noreturn abort() @safe;
+noreturn exit(int status);
+
+char*   getenv(scope const char* name);
+
+enum EXIT_SUCCESS = 0;
+enum EXIT_FAILURE = 1;
+
+pragma(LDC_alloca)
+void* alloca(size_t size) pure;
+
+} else:
+
 import core.stdc.config;
 public import core.stdc.stddef; // for wchar_t
 

@@ -14,6 +14,20 @@
 
 module core.stdc.string;
 
+version(WASIp2) {
+extern (C):
+nothrow:
+@nogc:
+
+int   memcmp(scope const void* s1, scope const void* s2, size_t n) pure;
+void* memcpy(return scope void* s1, scope const void* s2, size_t n) pure;
+void* memset(return scope void* s, int c, size_t n) pure;
+void* memmove(return scope void* s1, scope const void* s2, size_t n) pure;
+
+size_t strlen(scope const char* s) pure;
+}
+else:
+
 version (OSX)
     version = Darwin;
 else version (iOS)

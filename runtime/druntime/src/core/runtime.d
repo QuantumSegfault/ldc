@@ -632,10 +632,19 @@ extern (C) UnitTestResult runModuleUnitTests()
                 if (moduleName.length && e.file.length > moduleName.length
                     && e.file[0 .. moduleName.length] == moduleName)
                 {
+                    version (WASIp2) {
+                        import core.sys.wasip2.wasi.cli.stdout.imports : getStdout;
+                        import core.sys.wasip2.common : witList;
+                        auto stdout = getStdout;
+                        scope(exit) stdout.drop;
+
+                        cast(void)stdout.blockingWriteAndFlush((cast(const ubyte[])"%.*s(%llu): [unittest] %.*s\n").witList);
+                    } else {
                     import core.stdc.stdio : printf;
                     printf("%.*s(%llu): [unittest] %.*s\n",
                         cast(int) e.file.length, e.file.ptr, cast(ulong) e.line,
                         cast(int) e.message.length, e.message.ptr);
+                    }
 
                     // Exception originates in the same module, don't print
                     // the stack trace.

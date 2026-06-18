@@ -21,6 +21,9 @@ import core.stdc.config;
 import core.stdc.stddef;
 import core.stdc.stdint;
 
+version(WASIp2) {}
+else:
+
 @safe nothrow @nogc:
 
 ///

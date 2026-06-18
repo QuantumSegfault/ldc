@@ -13,6 +13,8 @@
 
 module core.stdc.math;
 
+version (WASIp2) {} else:
+
 import core.stdc.config;
 
 version (OSX)

@@ -32,6 +32,7 @@ else version (DragonFlyBSD) {}
 else version (NetBSD) {}
 else version (OpenBSD) {}
 else version (Windows) {}
+else version (WebAssembly) {}
 else version (LDC):
 
 import rt.minfo;
@@ -76,7 +77,7 @@ struct SectionGroup
 private:
     ModuleGroup _moduleGroup;
 
-    import rt.util.container.array;
+    import core.internal.container.array;
     Array!(void[]) _gcRanges;
 
     version (Solaris)
@@ -355,6 +356,10 @@ void[] initTLSRanges() nothrow @nogc
         auto rng = getTLSRange(&globalSectionGroup);
         debug(PRINTF) printf("Add range %p %d\n", rng ? rng.ptr : cast(void*)0, rng ? rng.length : 0);
         return rng;
+    }
+    else version (WASIp2)
+    {
+        return null;
     }
     else static assert(0, "TLS range detection not implemented for this OS.");
 

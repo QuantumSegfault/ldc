@@ -41,6 +41,21 @@ void abort(scope string msg, scope string filename = __FILE__, size_t line = __L
             }
         }
     }
+    else version (WASIp2)
+    {
+        import core.sys.wasip2.wasi.cli.stderr.imports : getStderr;
+        import core.sys.wasip2.common : witList;
+
+        static void writeStr(scope const(char)[][] m...) @nogc nothrow @trusted
+        {
+            auto stderr = getStderr;
+            scope(exit) stderr.drop;
+
+            foreach (s; m) {
+                cast(void)stderr.blockingWriteAndFlush((cast(const ubyte[])s).witList);
+            }
+        }
+    }
     else
         static assert(0, "Unsupported OS");
 

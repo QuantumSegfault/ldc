@@ -67,6 +67,8 @@ module core.time;
 
 import core.exception;
 import core.internal.string;
+
+version (WASIp2) {} else
 import core.stdc.time : time;
 
 version (OSX)
@@ -91,6 +93,10 @@ else version (Posix)
 {
     import core.sys.posix.sys.time : gettimeofday, timeval;
     import core.sys.posix.time : clock_getres, clock_gettime, CLOCK_MONOTONIC, timespec;
+}
+else version (WASIp2)
+{
+    import core.sys.wasip2.wasi.clocks.monotonic_clock.imports : now;
 }
 
 version (unittest) import core.stdc.stdio : printf;
@@ -336,6 +342,10 @@ else version (Solaris) enum ClockType
     processCPUTime = 4,
     second = 6,
     threadCPUTime = 7,
+}
+else version (WASIp2) enum ClockType
+{
+    normal = 0,
 }
 else
 {
@@ -2132,6 +2142,14 @@ struct MonoTimeImpl(ClockType clockType)
     {
         enum clockArg = _posixClock(clockType);
     }
+    else version (WASIp2)
+    {
+        static if (clockType != ClockType.normal)
+        {
+            static assert(0, "ClockType." ~ _clockName ~
+                            " is not supported by MonoTimeImpl on this system.");
+        }
+    }
     else
         static assert(0, "Unsupported platform");
 
@@ -2196,6 +2214,10 @@ struct MonoTimeImpl(ClockType clockType)
             return MonoTimeImpl(convClockFreq(ts.tv_sec * 1_000_000_000L + ts.tv_nsec,
                                               1_000_000_000L,
                                               ticksPerSecond));
+        }
+        else version (WASIp2)
+        {
+            return MonoTimeImpl(now());
         }
     }
 
@@ -2592,6 +2614,10 @@ extern(C) void _d_initMonoTime() @nogc nothrow
             }
         }
     }
+    else version (WASIp2)
+    {
+        tps[0] = 1_000_000_000L; // nanosecond precision
+    }
     else
         static assert(0, "Unsupported platform");
 }
@@ -2892,6 +2918,10 @@ deprecated:
             }
             else
                 ticksPerSec = 1_000_000;
+        }
+        else version (WASIp2)
+        {
+            ticksPerSec = 1_000_000_000;
         }
         else
             static assert(0, "Unsupported platform");
@@ -3461,6 +3491,10 @@ deprecated:
                 return TickDuration(tv.tv_sec * TickDuration.ticksPerSec +
                                     tv.tv_usec * TickDuration.ticksPerSec / 1000 / 1000);
             }
+        }
+        else version (WASIp2)
+        {
+            return TickDuration(now());
         }
     }
 

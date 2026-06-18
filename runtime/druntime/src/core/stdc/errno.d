@@ -14,6 +14,9 @@
 
 module core.stdc.errno;
 
+version(WASIp2) {}
+else:
+
 version (OSX)
     version = Darwin;
 else version (iOS)

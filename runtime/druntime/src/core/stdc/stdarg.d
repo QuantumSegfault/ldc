@@ -189,6 +189,13 @@ T va_arg(T)(ref va_list ap)
         ap += T.sizeof.alignUp;
         return *p;
     }
+    version (WebAssembly)
+    {
+        ap = ap.alignUp!(T.alignof);
+        auto p = cast(T*) ap;
+        ap += T.sizeof;
+        return *p;
+    }
     else version (Win64)
     {
         // LDC passes slices as 2 separate 64-bit values, not as 128-bit struct

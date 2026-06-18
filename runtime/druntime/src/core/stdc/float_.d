@@ -14,6 +14,9 @@
 
 module core.stdc.float_;
 
+version(WASIp2) {}
+else:
+
 extern (C):
 @trusted: // Constants only.
 nothrow:

@@ -158,6 +158,10 @@ else version (Posix)
         // Use POSIX threads for suspend/resume
     }
 }
+else version (WASIp2)
+{
+import core.stdc.stdlib : malloc, realloc, free;
+}
 
 version (GNU)
 {
@@ -518,6 +522,9 @@ class Thread : ThreadBase
                 multiThreadedFlag = false;
         }
 
+        version (WASIp2)
+        onThreadError("cannot start new threads on WASI");
+
         version (Windows) {} else
         version (Posix)
         {
@@ -671,6 +678,11 @@ class Thread : ThreadBase
             //       on object destruction.
             m_addr = m_addr.init;
         }
+        else version (WASIp2)
+        {
+            throw new ThreadException( "Unable to join thread" );
+        }
+
         if ( m_unhandled )
         {
             if ( rethrow )
@@ -700,6 +712,23 @@ class Thread : ThreadBase
         @property static int PRIORITY_DEFAULT() @nogc nothrow pure @safe
         {
             return THREAD_PRIORITY_NORMAL;
+        }
+    }
+    else version (WASIp2)
+    {
+        @property static int PRIORITY_MIN() @nogc nothrow pure @safe
+        {
+            return 0;
+        }
+
+        @property static const(int) PRIORITY_MAX() @nogc nothrow pure @safe
+        {
+            return 0;
+        }
+
+        @property static int PRIORITY_DEFAULT() @nogc nothrow pure @safe
+        {
+            return 0;
         }
     }
     else
@@ -884,6 +913,10 @@ class Thread : ThreadBase
             }
             return param.sched_priority;
         }
+        else version (WASIp2)
+        {
+            return 0;
+        }
     }
 
 
@@ -1023,6 +1056,10 @@ class Thread : ThreadBase
         else version (Posix)
         {
             return atomicLoad(m_isRunning);
+        }
+        else version (WASIp2)
+        {
+            return true; // the "main thread" is the only that will pass super.isRunning(), and is always running
         }
     }
 
@@ -1342,6 +1379,12 @@ private extern (D) ThreadBase attachThread(ThreadBase _thisThread) @nogc nothrow
         thisContext.tstack = thisContext.bstack;
 
         atomicStore!(MemoryOrder.raw)(thisThread.toThread.m_isRunning, true);
+    }
+    else version (WASIp2)
+    {
+        thisThread.m_addr  = 1; // assumes this is done only once
+        thisContext.bstack = getStackBottom();
+        thisContext.tstack = thisContext.bstack;
     }
     thisThread.m_isDaemon = true;
     thisThread.tlsRTdataInit();
@@ -1688,7 +1731,7 @@ in (fn)
             }}
             asm pure nothrow @nogc {
                 ("sd $gp, %0") : "=m" (regs[8]);
-                ("sd $fp, %0") : "=m" (regs[9]); 
+                ("sd $fp, %0") : "=m" (regs[9]);
                 ("sd $ra, %0") : "=m" (sp);
             }
         }
@@ -1753,6 +1796,11 @@ in (fn)
             asm pure nothrow @nogc { ( "st.d $fp, %0") : "=m" (regs[17]); }
             asm pure nothrow @nogc { ( "st.d $sp, %0") : "=m" (sp); }
         }
+        else version (WebAssembly)
+        {
+            // Wasm is special in that this isn't really possible
+            // Spilling has to be done somehow else...
+        }
         else
         {
             static assert(false, "Architecture not supported.");
@@ -1782,6 +1830,10 @@ version (Posix)
 else version (Windows)
 {
     alias getpid = imported!"core.sys.windows.winbase".GetCurrentProcessId;
+}
+else version (WASIp2)
+{
+    int getpid() @nogc nothrow @safe => 1;
 }
 
 extern (C) @nogc nothrow
@@ -1831,6 +1883,14 @@ version (LDC)
                 static assert(0);
         }
     }
+    version (WebAssembly)
+    {
+        //extern(C) extern size_t __stack_pointer;
+        private extern(D) void* getStackTop() nothrow @nogc
+        {
+            return null;//__asm!(void*)("global.get __stack_pointer", "=r");
+        }
+    }
     else
     {
         /* The use of intrinsic llvm_frameaddress is a reasonable default for
@@ -1872,6 +1932,14 @@ version (LDC_Windows)
             return __asm!(void*)("ldr $0, [x18,$1]", "=r,r", 8);
         else
             static assert(false, "Architecture not supported.");
+    }
+}
+else version (WebAssembly)
+{
+    extern(C) extern void* __stack_low;
+    private extern(D) void* getStackBottom() nothrow @nogc
+    {
+        return __stack_low;
     }
 }
 else
@@ -1976,6 +2044,8 @@ private extern (D) bool suspend( Thread t ) nothrow @nogc
         Thread.remove(t);
         return false;
     }
+
+    onThreadError( "Unable to suspend thread" );
 
     version (Windows)
     {
@@ -2348,6 +2418,8 @@ extern (C) void thread_preStopTheWorld() nothrow {
  */
 extern (C) void thread_suspendAll() nothrow
 {
+    version (WASIp2) onThreadError( "Unable to suspend all threads" );
+
     // NOTE: We've got an odd chicken & egg problem here, because while the GC
     //       is required to call thread_init before calling any other thread
     //       routines, thread_init may allocate memory which could in turn
@@ -2499,6 +2571,10 @@ private extern (D) void resume(ThreadBase _t) nothrow @nogc
         {
             t.m_curr.tstack = t.m_curr.bstack;
         }
+    }
+    else version (WASIp2)
+    {
+        onThreadError( "Unable to resume thread" );
     }
     else
         static assert(false, "Platform not supported.");
@@ -2996,6 +3072,17 @@ else version (Posix)
         {
 
         }
+    }
+}
+else version (WASIp2)
+{
+    //
+    // Entry point for WASIp2 threads
+    //
+    extern (C) void* thread_entryPoint( void* arg ) nothrow
+    {
+        onThreadError("Cannot enter new WASIp2 threads.");
+        return null;
     }
 }
 else

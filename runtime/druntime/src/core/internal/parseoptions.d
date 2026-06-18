@@ -11,7 +11,10 @@ module core.internal.parseoptions;
 
 import core.internal.traits : externDFunc, hasUDA;
 import core.stdc.ctype : isdigit, isspace;
+
+version (WASIp2) {} else
 import core.stdc.stdio : fprintf, snprintf, sscanf, stderr;
+
 import core.vararg;
 
 
@@ -148,6 +151,8 @@ bool optError(const scope char[] msg, const scope char[] name, const(char)[] err
 
     version (CoreUnittest) if (inUnittest) return false;
 
+    version (WASIp2) return false;
+    else
     fprintf(atomicLoad(stderr), "%.*s %.*s option '%.*s'.\n",
             cast(int)msg.length, msg.ptr,
             cast(int)errName.length, errName.ptr,
@@ -280,6 +285,8 @@ bool parse(const(char)[] optname, ref inout(char)[] str, ref float res, const(ch
 in { assert(str.length); }
 do
 {
+version (WASIp2) return false;
+else {
     // % uint f %n \0
     char[1 + 10 + 1 + 2 + 1] fmt=void;
     // specify max-width
@@ -291,6 +298,7 @@ do
         return parseError("a float", optname, str, errName);
     str = str[nscanned .. $];
     return true;
+}
 }
 
 bool parse(const(char)[] optname, ref inout(char)[] str, ref inout(char)[] res, const(char)[] errName)
@@ -311,6 +319,8 @@ bool parseError(const scope char[] exp, const scope char[] opt, const scope char
 
     version (CoreUnittest) if (inUnittest) return false;
 
+    version (WASIp2) return false;
+    else
     fprintf(atomicLoad(stderr), "Expecting %.*s as argument for %.*s option '%.*s', got '%.*s' instead.\n",
             cast(int)exp.length, exp.ptr,
             cast(int)errName.length, errName.ptr,
@@ -325,6 +335,8 @@ bool overflowedError(const scope char[] opt, const scope char[] got)
 
     version (CoreUnittest) if (inUnittest) return false;
 
+    version (WASIp2) return false;
+    else
     fprintf(atomicLoad(stderr), "Argument for %.*s option '%.*s' is too big.\n",
             cast(int)opt.length, opt.ptr,
             cast(int)got.length, got.ptr);

@@ -50,6 +50,10 @@ else version (Posix)
     import core.sys.posix.semaphore : sem_destroy, sem_init, sem_post, sem_t, sem_timedwait, sem_trywait, sem_wait;
     import core.sys.posix.time : clock_gettime, CLOCK_REALTIME, timespec;
 }
+else version (WASIp2)
+{
+    // Dummy no-op
+}
 else
 {
     static assert(false, "Platform not supported");
@@ -106,6 +110,10 @@ class Semaphore
             int rc = sem_init( &m_hndl, 0, count );
             if ( rc )
                 throw new SyncError( "Unable to create semaphore" );
+        }
+        else version (WASIp2)
+        {
+            m_count = count;
         }
     }
 
@@ -171,6 +179,12 @@ class Semaphore
                 if ( errno != EINTR )
                     throw new SyncError( "Unable to wait for semaphore" );
             }
+        }
+        else version (WASIp2)
+        {
+            if (m_count == 0) throw new SyncError( "Unable to wait for semaphore" );
+
+            m_count -= 1;
         }
     }
 
@@ -268,6 +282,11 @@ class Semaphore
                     throw new SyncError( "Unable to wait for semaphore" );
             }
         }
+        else version (WASIp2)
+        {
+            wait();
+            return true;
+        }
     }
 
 
@@ -295,6 +314,13 @@ class Semaphore
         {
             int rc = sem_post( &m_hndl );
             if ( rc )
+                throw new SyncError( "Unable to notify semaphore" );
+        }
+        else version (WASIp2)
+        {
+            if (m_count < typeof(m_count).max)
+                m_count += 1;
+            else
                 throw new SyncError( "Unable to notify semaphore" );
         }
     }
@@ -340,11 +366,19 @@ class Semaphore
                     throw new SyncError( "Unable to wait for semaphore" );
             }
         }
+        else version (WASIp2)
+        {
+            wait();
+            return true;
+        }
     }
 
 
 protected:
 
+    version (WASIp2) {
+        uint m_count;
+    } else {
     /// Aliases the operating-system-specific semaphore type.
     version (Windows)        alias Handle = HANDLE;
     /// ditto
@@ -354,6 +388,7 @@ protected:
 
     /// Handle to the system-specific semaphore.
     Handle m_hndl;
+    }
 }
 
 

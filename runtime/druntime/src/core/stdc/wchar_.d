@@ -14,6 +14,8 @@
 
 module core.stdc.wchar_;
 
+version (WASIp2) {} else:
+
 import core.stdc.config;
 import core.stdc.stdarg; // for va_list
 import core.stdc.stdio;  // for FILE, not exposed per spec

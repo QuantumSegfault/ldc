@@ -14,6 +14,30 @@
 
 module core.stdc.ctype;
 
+version(WASIp2) {
+// Not extern(C)
+@safe: // All of these operate on integers only.
+nothrow:
+@nogc:
+
+pure int isalnum(int c) => isalpha(c) || isdigit(c);
+pure int isalpha(int c) => (cast(uint)c | 32) - 'a' < 26;
+pure int isblank(int c) => c == ' ' || c == '\t';
+pure int iscntrl(int c) => cast(uint)c < 0x20 || c == 0x7f;
+pure int isdigit(int c) => cast(uint)c - '0' < 10;
+pure int isgraph(int c) => cast(uint)c - 0x21 < 0x5e;
+pure int islower(int c) => cast(uint)c - 'a' < 26;
+pure int isprint(int c) => cast(uint)c - 0x20 < 0x5f;
+pure int ispunct(int c) => isgraph(c) && !isalnum(c);
+pure int isspace(int c) => c == ' ' || cast(uint)c - '\t' < 5;
+pure int isupper(int c) => cast(uint)c - 'A' < 26;
+pure int isxdigit(int c) => isdigit(c) || (cast(uint)c | 32) - 'a' < 6;
+pure int tolower(int c) => isupper(c) ? (c | 32) : c;
+pure int toupper(int c) => islower(c) ? (c & 0x5f) : c;
+
+}
+else:
+
 extern (C):
 @trusted: // All of these operate on integers only.
 nothrow:

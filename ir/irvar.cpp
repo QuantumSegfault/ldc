@@ -163,6 +163,45 @@ void IrGlobal::define() {
   // Also set up the debug info.
   gIR->DBuilder.EmitGlobalVariable(gvar, V);
 
+  if (global.params.targetTriple->isWasm() && gvar->hasSection()) {
+    llvm::StringRef sectionName = gvar->getSection();
+
+    if (sectionName.consume_front(".custom_section.")) {
+      if (V->isThreadlocal()) {
+        error(V->loc, "Globals placed in Wasm custom sections must not be thread-local.");
+      }
+      if (!gvar->isConstant()) {
+        error(V->loc, "Globals placed in Wasm custom sections must be constant (`const` or `immutable`, and have explicit, non-`void` initializer).");
+      }
+      if (!initVal->isManifestConstant()) {
+        error(V->loc, "Globals placed in Wasm custom sections must contain only constant/literal data (e.g. no pointers, etc.).");
+      }
+
+      if (!llvm::isa<llvm::ConstantDataArray>(initVal)) {
+        error(V->loc, "Globals placed in Wasm custom sections must be a static array of `ubyte`, `byte`, or `char`.");
+        return;
+      }
+
+      llvm::ConstantDataArray *initDataConst = llvm::cast<llvm::ConstantDataArray>(initVal);
+
+      if (!initDataConst->isString()) {
+        error(V->loc, "Globals placed in Wasm custom sections must be a static array of `ubyte`, `byte`, or `char`.");
+      }
+
+      llvm::StringRef initData = initDataConst->getAsString();
+
+      llvm::NamedMDNode *sectionsMetadata =
+          gIR->module.getOrInsertNamedMetadata("wasm.custom_sections");
+
+      sectionsMetadata->addOperand(llvm::MDTuple::get(gIR->context(), {
+        llvm::MDString::get(gIR->context(), sectionName),
+        llvm::MDString::get(gIR->context(), initData)
+      }));
+
+      gvar->setSection(llvm::StringRef());
+    }
+  }
+
   IF_LOG Logger::cout() << *gvar << '\n';
 }
 

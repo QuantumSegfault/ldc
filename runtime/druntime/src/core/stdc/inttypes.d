@@ -14,6 +14,9 @@
 
 module core.stdc.inttypes;
 
+version(WASIp2) {}
+else:
+
 public import core.stdc.stddef; // for wchar_t
 public import core.stdc.stdint; // required by spec
 

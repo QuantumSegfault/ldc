@@ -60,12 +60,25 @@ extern (C)
             auto newInstance = createGCInstance(config.gc);
             if (newInstance is null)
             {
+                version(WASIp2) {
+                    import core.sys.wasip2.wasi.cli.stderr.imports : getStderr;
+                    import core.sys.wasip2.common : witList;
+
+                    auto stderr = getStderr;
+                    scope(exit) stderr.drop;
+
+                    cast(void)stderr.blockingWriteAndFlush((cast(const ubyte[])"No GC was initialized, please recheck the name of the selected GC ('").witList);
+                    cast(void)stderr.blockingWriteAndFlush((cast(const ubyte[])config.gc).witList);
+                    cast(void)stderr.blockingWriteAndFlush((cast(const ubyte[])"').\n").witList);
+                }
+                else {
                 import core.stdc.stdio : fprintf, stderr;
-                import core.stdc.stdlib : exit;
                 import core.atomic : atomicLoad;
 
                 fprintf(atomicLoad(stderr), "No GC was initialized, please recheck the name of the selected GC ('%.*s').\n", cast(int)config.gc.length, config.gc.ptr);
                 instanceLock.unlock();
+                }
+                import core.stdc.stdlib : exit;
                 exit(1);
 
                 // Shouldn't get here.
@@ -97,11 +110,24 @@ extern (C)
             switch (config.cleanup)
             {
                 default:
-                    import core.stdc.stdio : fprintf, stderr;
-                    import core.atomic : atomicLoad;
+                    version(WASIp2) {
+                        import core.sys.wasip2.wasi.cli.stderr.imports : getStderr;
+                        import core.sys.wasip2.common : witList;
 
-                    fprintf(atomicLoad(stderr), "Unknown GC cleanup method, please recheck ('%.*s').\n",
-                            cast(int)config.cleanup.length, config.cleanup.ptr);
+                        auto stderr = getStderr;
+                        scope(exit) stderr.drop;
+
+                        cast(void)stderr.blockingWriteAndFlush((cast(const ubyte[])"Unknown GC cleanup method, please recheck ('").witList);
+                        cast(void)stderr.blockingWriteAndFlush((cast(const ubyte[])config.cleanup).witList);
+                        cast(void)stderr.blockingWriteAndFlush((cast(const ubyte[])"').\n").witList);
+                    }
+                    else {
+                        import core.stdc.stdio : fprintf, stderr;
+                        import core.atomic : atomicLoad;
+
+                        fprintf(atomicLoad(stderr), "Unknown GC cleanup method, please recheck ('%.*s').\n",
+                                cast(int)config.cleanup.length, config.cleanup.ptr);
+                    }
                     break;
                 case "none":
                     break;

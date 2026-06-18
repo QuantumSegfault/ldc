@@ -223,6 +223,10 @@ private extern (C) void _initialize() @system
         GetSystemInfo(&si);
         (cast() pageSize) = cast(size_t) si.dwPageSize;
     }
+    else version (WebAssembly)
+    {
+        (cast() pageSize) = cast(size_t) 65536;
+    }
     else
         static assert(false, __FUNCTION__ ~ " is not implemented on this platform");
 }
@@ -1160,6 +1164,22 @@ void pureFree()(void* ptr) @system pure @nogc nothrow
 // locally purified for internal use here only
 
 static import core.stdc.errno;
+
+version (WASIp2) {
+extern(C) private @nogc nothrow pure @system
+{
+    pragma(mangle, "getErrno")
+    @property int fakePureErrno();
+
+    pragma(mangle, "setErrno")
+    @property int fakePureErrno(int);
+
+    int getErrno() => 0;
+    int setErrno(int) => 0;
+}
+}
+else
+{
 static if (__traits(getOverloads, core.stdc.errno, "errno").length == 1
     && __traits(getLinkage, core.stdc.errno.errno) == "C")
 {
@@ -1177,6 +1197,7 @@ else
         @property int fakePureErrno(int);
     }
 }
+}
 
 version (D_BetterC) {}
 else // TODO: remove this function after Phobos no longer needs it.
@@ -1184,8 +1205,13 @@ extern (C) private @system @nogc nothrow
 {
     ref int fakePureErrnoImpl()
     {
+        version (WASIp2) {
+        static int fakeErrno;
+        return fakeErrno;
+        } else {
         import core.stdc.errno : errno;
         return errno();
+        }
     }
 }
 

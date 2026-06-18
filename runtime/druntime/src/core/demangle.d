@@ -2882,6 +2882,10 @@ extern (C) private
 
     void fakePureReprintReal(char[] nptr)
     {
+        version (WASIp2) {
+            nptr[0] = '\0';
+        }
+        else {
         import core.stdc.stdlib : strtold;
         import core.stdc.stdio : snprintf;
         import core.stdc.errno : errno;
@@ -2890,6 +2894,7 @@ extern (C) private
         real val = strtold(nptr.ptr, null);
         snprintf(nptr.ptr, nptr.length, "%#Lg", val);
         errno = err;
+        }
     }
 }
 

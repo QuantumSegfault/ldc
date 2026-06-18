@@ -8,6 +8,11 @@
 module core.gc.config;
 
 import core.internal.parseoptions;
+version (WASIp2) {
+import core.sys.wasip2.wasi.cli.stdout.imports : getStdout;
+import core.sys.wasip2.common : witList;
+}
+else
 import core.stdc.stdio : printf;
 
 __gshared Config config;
@@ -40,6 +45,15 @@ struct Config
 
     void help() @nogc nothrow
     {
+        version (WASIp2) {
+            {
+                auto stdout = getStdout;
+                scope(exit) stdout.drop;
+
+                cast(void)stdout.blockingWriteAndFlush((cast(const ubyte[])"GC help requested.\n").witList);
+            }
+        }
+        else {
         import core.gc.registry : registeredGCFactories;
 
         printf("GC options are specified as white space separated assignments:
@@ -73,6 +87,7 @@ struct Config
                _maxPoolSize.v, _maxPoolSize.u,
                _incPoolSize.v, _incPoolSize.u,
                cast(long)parallel, heapSizeFactor);
+        }
     }
 
     string errorName() @nogc nothrow { return "GC"; }
