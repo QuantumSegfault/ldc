@@ -215,6 +215,10 @@ private extern (C) void _initialize() @system
 
         (cast() pageSize) = cast(size_t) sysconf(_SC_PAGESIZE);
     }
+    else version (WebAssembly)
+    {
+        (cast() pageSize) = cast(size_t) 65536;
+    }
     else version (Windows)
     {
         import core.sys.windows.winbase : GetSystemInfo, SYSTEM_INFO;

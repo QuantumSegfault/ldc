@@ -31,6 +31,10 @@ else version (Posix)
         pthread_mutexattr_init, pthread_mutexattr_settype;
     import core.sys.posix.sys.types : pthread_mutex_t, pthread_mutexattr_t;
 }
+else version (WASI)
+{
+    // Dummy no-op
+}
 else
 {
     static assert(false, "Platform not supported");
@@ -270,6 +274,10 @@ class Mutex :
         else version (Posix)
         {
             return pthread_mutex_trylock(&m_hndl) == 0;
+        }
+        else version (WASI)
+        {
+            return true;
         }
     }
 

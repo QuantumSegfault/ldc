@@ -158,6 +158,15 @@ else version (Posix)
         // Use POSIX threads for suspend/resume
     }
 }
+else version (WASI)
+{
+    // No real threading support
+    // Just manipulations of the main "thread"
+
+    import core.stdc.errno : EINTR, errno;
+    import core.stdc.stdlib : free, malloc, realloc;
+    import core.sys.wasi.posix.time : nanosleep, timespec;
+}
 
 version (GNU)
 {
@@ -530,6 +539,9 @@ class Thread : ThreadBase
             if ( stksz && pthread_attr_setstacksize( &attr, stksz ) )
                 onThreadError( "Error initializing thread stack size" );
         }
+        version (WASI) {
+            onThreadError("cannot start new threads on WASI");
+        }
 
         version (Shared)
         {
@@ -670,6 +682,9 @@ class Thread : ThreadBase
             //       to zero ensures that pthread_detach will not be called
             //       on object destruction.
             m_addr = m_addr.init;
+        } else version (WASI)
+        {
+           throw new ThreadException( "Unable to join thread" );
         }
         if ( m_unhandled )
         {
@@ -700,6 +715,23 @@ class Thread : ThreadBase
         @property static int PRIORITY_DEFAULT() @nogc nothrow pure @safe
         {
             return THREAD_PRIORITY_NORMAL;
+        }
+    }
+    version (WASI)
+    {
+        @property static int PRIORITY_MIN() @nogc nothrow pure @safe
+        {
+            return 0;
+        }
+
+        @property static const(int) PRIORITY_MAX() @nogc nothrow pure @safe
+        {
+            return 0;
+        }
+
+        @property static int PRIORITY_DEFAULT() @nogc nothrow pure @safe
+        {
+            return 0;
         }
     }
     else
@@ -884,6 +916,10 @@ class Thread : ThreadBase
             }
             return param.sched_priority;
         }
+        else version (WASI)
+        {
+            return 0;
+        }
     }
 
 
@@ -1024,6 +1060,11 @@ class Thread : ThreadBase
         {
             return atomicLoad(m_isRunning);
         }
+        else version (WASI)
+        {
+            // the "main thread" is the only that will pass super.isRunning(), and is always running
+            return true;
+        }
     }
 
 
@@ -1082,6 +1123,23 @@ class Thread : ThreadBase
             Sleep( cast(uint) val.total!"msecs" );
         }
         else version (Posix)
+        {
+            timespec tin  = void;
+            timespec tout = void;
+
+            val.split!("seconds", "nsecs")(tin.tv_sec, tin.tv_nsec);
+            if ( val.total!"seconds" > tin.tv_sec.max )
+                tin.tv_sec  = tin.tv_sec.max;
+            while ( true )
+            {
+                if ( !nanosleep( &tin, &tout ) )
+                    return;
+                if ( errno != EINTR )
+                    assert(0, "Unable to sleep for the specified duration");
+                tin = tout;
+            }
+        }
+        else version (WASI)
         {
             timespec tin  = void;
             timespec tout = void;
@@ -1342,6 +1400,12 @@ private extern (D) ThreadBase attachThread(ThreadBase _thisThread) @nogc nothrow
         thisContext.tstack = thisContext.bstack;
 
         atomicStore!(MemoryOrder.raw)(thisThread.toThread.m_isRunning, true);
+    }
+    else version (WASI)
+    {
+        thisThread.m_addr  = 1; // assumes this is done only once
+        thisContext.bstack = getStackBottom();
+        thisContext.tstack = thisContext.bstack;
     }
     thisThread.m_isDaemon = true;
     thisThread.tlsRTdataInit();
@@ -1624,6 +1688,11 @@ in (fn)
             mov sp[RBP], RSP;
         }
     }
+    else version (WebAssembly)
+    {
+        // Wasm is special in that this isn't really possible
+        // Spilling has to be done somehow else...
+    }
     else version (LDC)
     {
         version (PPC_Any)
@@ -1688,7 +1757,7 @@ in (fn)
             }}
             asm pure nothrow @nogc {
                 ("sd $gp, %0") : "=m" (regs[8]);
-                ("sd $fp, %0") : "=m" (regs[9]); 
+                ("sd $fp, %0") : "=m" (regs[9]);
                 ("sd $ra, %0") : "=m" (sp);
             }
         }
@@ -1782,6 +1851,10 @@ version (Posix)
 else version (Windows)
 {
     alias getpid = imported!"core.sys.windows.winbase".GetCurrentProcessId;
+}
+else version (WASI)
+{
+    int getpid() @nogc nothrow @safe => 1;
 }
 
 extern (C) @nogc nothrow
@@ -2353,6 +2426,10 @@ private extern (D) bool suspend( Thread t ) nothrow @nogc
             t.m_curr.tstack = getStackTop();
         }
     }
+    else version (WASI)
+    {
+        onThreadError( "Unable to suspend thread" );
+    }
     return true;
 }
 
@@ -2374,6 +2451,8 @@ extern (C) void thread_preStopTheWorld() nothrow {
  */
 extern (C) void thread_suspendAll() nothrow
 {
+    version (WASI) onThreadError( "Unable to suspend all threads" );
+
     // NOTE: We've got an odd chicken & egg problem here, because while the GC
     //       is required to call thread_init before calling any other thread
     //       routines, thread_init may allocate memory which could in turn
@@ -2437,6 +2516,10 @@ extern (C) void thread_suspendAll() nothrow
                     errno = 0;
                 }
             }
+        }
+        else version (WASI)
+        {
+            // bail out handled at start
         }
     }
 }
@@ -2525,6 +2608,10 @@ private extern (D) void resume(ThreadBase _t) nothrow @nogc
         {
             t.m_curr.tstack = t.m_curr.bstack;
         }
+    }
+    else version (WASI)
+    {
+        onThreadError( "Unable to resume thread" );
     }
     else
         static assert(false, "Platform not supported.");
@@ -2639,6 +2726,10 @@ extern (C) void thread_init() @nogc nothrow
         status = sem_init( &suspendCount, 0, 0 );
         assert( status == 0 );
     }
+    else version (WASI)
+    {
+    }
+
     _mainThreadStore[] = cast(void[]) __traits(initSymbol, Thread)[];
     Thread.sm_main = attachThread((cast(Thread)_mainThreadStore.ptr).__ctor());
 }
@@ -3024,6 +3115,17 @@ else version (Posix)
         }
     }
 }
+else version (WASI)
+{
+    //
+    // Entry point for WASI threads
+    //
+    extern (C) void* thread_entryPoint( void* arg ) nothrow
+    {
+        onThreadError("Cannot enter new WASI threads.");
+        return null;
+    }
+}
 else
 {
     // NOTE: This is the only place threading versions are checked.  If a new
@@ -3308,6 +3410,13 @@ ThreadID createLowLevelThread(void delegate() nothrow dg, uint stacksize = 0,
 
         ll_pThreads[ll_nThreads - 1].tid = tid;
     }
+    else version (WASI)
+    {
+        // no-op for now.
+
+        // falls through to returning `tid`,
+        // which will already be `ThreadID.init` (error)
+    }
     return tid;
 }
 
@@ -3346,6 +3455,10 @@ void joinLowLevelThread(ThreadID tid) nothrow @nogc
     {
         if (pthread_join(tid, null) != 0)
             onThreadError("Unable to join thread");
+    }
+    else version (WASI)
+    {
+        onThreadError("Unable to join thread");
     }
 }
 
