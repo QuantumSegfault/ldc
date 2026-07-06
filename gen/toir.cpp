@@ -2417,7 +2417,7 @@ public:
     // allocated on the stack?
     if (!dyn || e->onstack) {
       llvm::Value *storage =
-          DtoRawAlloca(llStoType, DtoAlignment(elemType), "arrayliteral");
+          DtoRawAlloca(llStoType, DtoAlignment(elemType), hasPointers(elemType), "arrayliteral");
       initializeArrayLiteral(p, e, storage, llStoType);
 
       if (arrayType->ty == TY::Tsarray) {
@@ -2591,11 +2591,13 @@ public:
 
     std::vector<LLType *> types;
     types.reserve(e->exps->length);
+    bool gcRoot = false;
     for (auto exp : *e->exps) {
       types.push_back(DtoMemType(exp->type));
+      gcRoot |= hasPointers(exp->type);
     }
     llvm::StructType *st = llvm::StructType::get(gIR->context(), types);
-    LLValue *val = DtoRawAlloca(st, 0, ".tuple");
+    LLValue *val = DtoRawAlloca(st, 0, gcRoot, ".tuple");
     for (size_t i = 0; i < e->exps->length; i++) {
       Expression *el = (*e->exps)[i];
       DValue *ep = toElem(el);
